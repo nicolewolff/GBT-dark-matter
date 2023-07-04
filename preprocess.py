@@ -1,8 +1,8 @@
 import numpy as np
 
-def rebin(xs, ys, cell_size=16):  # Returns data rebinned to given cell size
+def rebin(xs, ys, fine_per_coarse, cell_size=16):  # Returns data rebinned to given cell size
     
-    rebin_size=1024//cell_size
+    rebin_size=fine_per_coarse//cell_size
     rebinned_spec = []
     for i in range(len(ys)//rebin_size):
         average = np.mean(ys[i*rebin_size:i*rebin_size+rebin_size])

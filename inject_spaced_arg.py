@@ -3,10 +3,13 @@ import sys, os
 sys.path.insert(0, '..')
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 
-filepath_to_inject = '/home/dataadmin/GBTData/SharedDataDirectory/lband/raw_files_npy'
+inject_path = '/home/dataadmin/GBTData/SharedDataDirectory/lband/raw_files_npy'
+data_table_path = '/home/dataadmin/GBTData/SharedDataDirectory/lband/data_table/all_info.csv'
 
 is_decay = False
+template = False
 
 v_virial = 250
 v_earth = 225
@@ -17,10 +20,6 @@ dm_profile = 'nfw'
 
 
 """
-:param xs: frequencies
-:type xs: ndarray
-:param ys: powers
-:type ys: ndarray
 :param sig_loc: Center frequency ued to calculate signal magnitude
 :type sig_loc: float
 :param sig_std: Doppler broadening of the source
@@ -32,8 +31,7 @@ dm_profile = 'nfw'
 """
 def inject(xs, ys, theta, sig_loc, sig_std, sig_amp):
     shift_factor = get_shift_factor(theta)
-    sig_loc, sig_std = sig_loc*shift_factor, sig_std*shift_factor
-    sig_amp = sig_amp / shift_factor
+    sig_loc, sig_std, sig_amp = sig_loc*shift_factor, sig_std*shift_factor, sig_amp/shift_factor
     return (ys + sig_amp*np.exp(-(xs - sig_loc)**2 / (2*sig_std**2)))  # Gaussian signal
     
 def get_shift_factor(theta):
@@ -44,44 +42,33 @@ def get_shift_factor(theta):
 
 def inject_spaced(ann_cross_sec, loc, filepath_to_save, template):
     os.makedirs(filepath_to_save, exist_ok=True)
-    
+    if is_decay:
+        sig_std = v_virial*sig_loc/(c*np.sqrt(3))
+        sig_amp_ratio = 2.75e23*decay_rate / (v_virial*(sig_loc/1e3)**4)
+        col_name = 'max_normed_'+dm_profile
+    else:
+        sig_std = v_virial*sig_loc/(c*np.sqrt(6))
+        sig_amp_ratio = 3.55e28*ann_cross_sec / (v_virial*(sig_loc/1e3)**4) # convert MHz to GHz
+        col_name ='nfw_sq'    
     targ_info = pd.read_csv('/home/dataadmin/GBTData/SharedDataDirectory/lband/data_table/all_info.csv').set_index('file_name')
-    names = os.listdir(filepath_to_inject)
-    for name in names:
+    names = os.listdir(inject_path)
+    for name in tqdm(names):
         try:
-            spec =  np.load(os.path.join(filepath_to_inject, name))[1]
-            if np.shape(spec)[0] == 315392:  # spectrum has exactly 308 coarse channels
-                freq = np.load(os.path.join(filepath_to_inject, name))[0]
+            spec =  np.load(os.path.join(inject_path, name))[1]
+            if np.shape(spec)[0] == 315392:
+                freq = np.load(os.path.join(inject_path, name))[0]
                 if template:
-                    spec = np.ones_like(spec)
-
-                if is_decay:
-                    sig_std = v_virial*loc/(c*np.sqrt(3))
-                    sig_amp_ratio = 2.75e23*decay_rate / (v_virial*(loc/1e3)**4) # convert MHz to GHz
-                    col_name = 'max_normed_'+dm_profile
-                else:
-                    sig_std = v_virial*loc/(c*np.sqrt(6))
-                    sig_amp_ratio = 3.55e28*ann_cross_sec / (v_virial*(loc/1e3)**4) # convert MHz to GHz
-                    col_name ='nfw_sq'  # dark matter density profile
-
-                theta = targ_info.loc[name[:-4], 'sep90']                
-
-                amp = np.median(spec) * sig_amp_ratio*targ_info.loc[name[:-4], col_name]
+                    spec = np.ones_like(spec)                  
+                spec_med = np.median(spec)
+                theta = targ_info.loc[name[:-4], 'sep90']
+                amp_ratio = sig_amp_ratio*targ_info.loc[name[:-4], col_name]
                 
+                amp = spec_med*amp_ratio
                 loc_loop = loc
                 end = freq[freq.size-50]
                 salted = inject(freq, spec, theta, loc_loop, sig_std, amp)
-                while loc_loop <= end-50 :  # Inject every 50 MHz until the end
+                while loc_loop <= end-50:  # loop every 50 MHz
                     loc_loop = loc_loop + 50
-                    if is_decay:
-                        sig_std = v_virial*loc_loop/(C*np.sqrt(3))
-                        sig_amp_ratio = 2.75e23*decay_rate / (v_virial*(loc/1e3)**4) # convert MHz to GHz
-                        col_name = 'max_normed_'+dm_profile
-                    else:
-                        sig_std = v_virial*loc/(C*np.sqrt(6))
-                        sig_amp_ratio = 3.55e28*ann_cross_sec / (v_virial*(loc/1e3)**4) # convert MHz to GHz
-                        col_name ='nfw_sq'  # dark matter density profile
-                    amp = np.median(spec) * sig_amp_ratio*targ_info.loc[name[:-4], col_name]
                     salted = inject(freq, salted, theta, loc_loop, sig_std, amp)
             
                 save_loc_spec = os.path.join(filepath_to_save, name)

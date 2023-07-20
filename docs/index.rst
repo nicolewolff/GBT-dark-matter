@@ -13,9 +13,10 @@ Contents
 --------
 
 .. toctree::
+   :maxdepth: 2
 
-   usage
-   api
+   readme
+   changethelog
 
 .. automodule:: GBT-dark-matter.inject_spaced_arg
    :members:

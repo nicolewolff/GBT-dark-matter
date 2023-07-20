@@ -1,4 +1,3 @@
-
 import sys, subprocess, os
 import numpy as np
 import pandas as pd
@@ -10,97 +9,88 @@ from inject_spaced_arg import *
 from dateutil.relativedelta import relativedelta
 import datetime
 from logger import * 
+import logging
 import matplotlib.pyplot as plt
-#comment out everything in the mega script except the inject part
-def main_function(start_frequency, injected_signal):
-    logger = get_logger()
-    # variables to change
-    # start_frequency = 1800
-    # injected_signal= 1e-43 
-    #injected_signal = injected_signal
+
+logger = logging.getLogger()
+
+def main_function(start_frequency, injected_signal, config):
     logger.debug(f"Starting process for {start_frequency} and {injected_signal}")
     start_time = datetime.datetime.now()
-    #change this to have 0 signal 
-    injected_filepath = f'/home/dataadmin/GBTData/SharedDataDirectory/lband/injected_limits_analysis/start_{start_frequency}/signal_{injected_signal}'
-    preprocessed_filepath = f'/home/dataadmin/GBTData/SharedDataDirectory/lband/preprocessed_limits_analysis_uncombed/start_{start_frequency}/signal_{injected_signal}' 
+    injected_filepath = config.get("Paths", "injected_filepath").format(start_frequency=start_frequency, injected_signal=injected_signal)
+    preprocessed_filepath = config.get("Paths", "preprocessed_filepath").format(start_frequency=start_frequency, injected_signal=injected_signal)
+    preprocessed_uninjected_filepath = config.get("Paths", "preprocessed_uninjected_filepath").format(start_frequency=start_frequency)
+    normalized_filepath = config.get("Paths", "normalized_filepath").format(start_frequency=start_frequency, injected_signal=injected_signal)
+    normalized_uninjected_filepath = config.get("Paths", "normalized_uninjected_filepath")
+    template_filepath = config.get("Paths", "template_filepath")
+    data_table_filepath = config.get("Paths", "data_table_filepath")
+    xs_filepath = config.get("Paths", "xs_filepath")
+    filepath_to_save = config.get("Paths", "filepath_to_save").format(start_frequency=start_frequency, injected_signal=injected_signal)
+    normalized_template_filepath = config.get("Paths", "normalized_template_filepath")
+    injected_template_filepath = config.get("Paths", "injected_template_filepath")
+    preprocessed_template_filepath = config.get("Paths", "preprocessed_template_filepath")
+    data_table = pd.read_csv(data_table_filepath).set_index('file_name')
+    xs = np.load(xs_filepath)
 
-    normalized_filepath = f'/home/dataadmin/GBTData/SharedDataDirectory/lband/normalized_spectra_spaced_uncombed/limit_analysis/start_{start_frequency}/signal_{injected_signal}' 
-    normalized_uninjected_filepath = '/home/dataadmin/GBTData/SharedDataDirectory/lband/normalized_spectra_spaced_uncombed/limit_analysis/start_1037/signal_0' 
-    template_filepath = '/home/dataadmin/GBTData/SharedDataDirectory/lband/limit_analysis_template_normalized'
-    data_table = pd.read_csv('/home/dataadmin/GBTData/SharedDataDirectory/lband/data_table/all_info.csv').set_index('file_name')
-    xs = np.load('/home/dataadmin/GBTData/SharedDataDirectory/lband/normalized_spectra_pbp/normed_freqs_pbp.npy')
-    filepath_to_save = f'/home/dataadmin/GBTData/SharedDataDirectory/lband/limit_analysis_uncombed/start_{start_frequency}/signal_{injected_signal}' 
+    if config.getboolean("Operations", "inject"):
+        inject_start_time = datetime.datetime.now()
+        inject_spaced(injected_signal, start_frequency, injected_filepath, False)
+        inject_end_time = datetime.datetime.now()
+        delta_inject = relativedelta(inject_end_time, inject_start_time)
+        logger.debug(f'Injection done in {delta_inject.hours} hrs, {delta_inject.minutes} mins, {delta_inject.seconds} sec')
+        print("done inject")
 
-    # xs = np.load('/home/dataadmin/GBTData/SharedDataDirectory/sband/normalized_spectra_quartic/normed_freqs_quartic.npy')
-    # normalized_filepath = f'/home/dataadmin/GBTData/SharedDataDirectory/lband/normalized_spectra_quartic_interpolated/signal_{injected_signal}' 
-    # normalized_uninjected_filepath = '/home/dataadmin/GBTData/SharedDataDirectory/sband/normalized_spectra_quartic_interpolated/signal_0' 
-    # template for preprocess and normalized
-    normalized_template_filepath = '/home/dataadmin/GBTData/SharedDataDirectory/lband/normalized_spectra_spaced/template' #template for normalized 
-    injected_template_filepath = f'/home/dataadmin/GBTData/SharedDataDirectory/lband/injected_limits_analysis/template'
-    preprocessed_template_filepath = f'/home/dataadmin/GBTData/SharedDataDirectory/lband/preprocessed_limits_analysis/template' 
+    if config.getboolean("Operations", "preprocess"):
+        preprocess_start_time = datetime.datetime.now()
+        print("About to preprocess:")
+        preprocess(injected_filepath, preprocessed_filepath, False)
+        preprocess_end_time = datetime.datetime.now()
+        delta_preprocess = relativedelta(preprocess_end_time, preprocess_start_time)
+        logger.debug(f'Preprocessing done in {delta_preprocess.hours} hrs, {delta_preprocess.minutes} mins, {delta_preprocess.seconds} sec')
+        print("done preprocess")
 
-    # filepath_to_save = f'/home/dataadmin/GBTData/SharedDataDirectory/sband/quartic_interpolated_results/signal_{injected_signal}' 
+    if config.getboolean("Operations", "normalize"):
+        norm_start_time = datetime.datetime.now()
+        print('starting norm')
+        normalize(preprocessed_filepath, normalized_filepath)
+        norm_end_time = datetime.datetime.now()
+        delta_norm = relativedelta(norm_end_time, norm_start_time)
+        logger.debug(f'Normalization done in {delta_norm.hours} hrs, {delta_norm.minutes} mins, {delta_norm.seconds} sec')
+        print("done norm")
 
+    if config.getboolean("Operations", "uninjected_normalize"):
+        norm_start_time = datetime.datetime.now()
+        normalize(preprocessed_uninjected_filepath, normalized_uninjected_filepath)
+        norm_end_time = datetime.datetime.now()
+        delta_norm = relativedelta(norm_end_time, norm_start_time)
+        logger.debug(f'Uninjected normalization done in {delta_norm.hours} hrs, {delta_norm.minutes} mins, {delta_norm.seconds} sec')
+        print("done uninject norm")
 
-    #UNCOMMENT
-    # Injection (comment all of these out but this one)
-    # inject_start_time = datetime.datetime.now()
-    # inject_spaced(injected_signal, start_frequency, injected_filepath, False)
-    # inject_end_time = datetime.datetime.now()
-    # delta_inject = relativedelta(inject_end_time, inject_start_time)
-    # logger.debug(f'Injection done in {delta_inject.hours} hrs, {delta_inject.minutes} mins, {delta_inject.seconds} sec')
-    # print("done inject")
-    #UNCOMMENT
-    # Preprocessing
-    # preprocess_start_time = datetime.datetime.now()
-    # preprocess(injected_filepath, preprocessed_filepath, False)
-    # preprocess_end_time = datetime.datetime.now()
-    # delta_preprocess = relativedelta(preprocess_end_time, preprocess_start_time)
-    # logger.debug(f'Preprocessing done in {delta_preprocess.hours} hrs, {delta_preprocess.minutes} mins, {delta_preprocess.seconds} sec')
-    # print("done preprocess")
+    if config.getboolean("Operations", "inject_template"):
+        inject_start_time = datetime.datetime.now()
+        inject_spaced(injected_signal, start_frequency, injected_template_filepath, True)
+        inject_end_time = datetime.datetime.now()
+        delta_inject = relativedelta(inject_end_time, inject_start_time)
+        logger.debug(f'Injection Template done in {delta_inject.hours} hrs, {delta_inject.minutes} mins, {delta_inject.seconds} sec')
 
-    # # Uninjected normalization
-    # norm_start_time = datetime.datetime.now()
-    # normalize('/home/dataadmin/GBTData/SharedDataDirectory/lband/signal_0_preprocessed_uncombed', normalized_uninjected_filepath)
-    # norm_end_time = datetime.datetime.now()
-    # delta_norm = relativedelta(norm_end_time, norm_start_time)
-    # logger.debug(f'Uninjected normalization done in {delta_norm.hours} hrs, {delta_norm.minutes} mins, {delta_norm.seconds} sec')
-    # print("done uninject norm")
-    #UNCOMMENT
-    # Normalization
-    # norm_start_time = datetime.datetime.now()
-    # print('starting norm')
-    # normalize(preprocessed_filepath, normalized_filepath)
-    # norm_end_time = datetime.datetime.now()
-    # delta_norm = relativedelta(norm_end_time, norm_start_time)
-    # logger.debug(f'Normalization done in {delta_norm.hours} hrs, {delta_norm.minutes} mins, {delta_norm.seconds} sec')
-    # print("done norm")
-    #UNCOMMENT
-    # Injection Template (comment all of these out but this one) MAKE TEMPLATE VARIABLE A PARAMETER, create new paths and fix
-    #inject_start_time = datetime.datetime.now()
-    #inject_spaced(injected_signal, start_frequency, injected_template_filepath, True)
-    #inject_end_time = datetime.datetime.now()
-    #delta_inject = relativedelta(inject_end_time, inject_start_time)
-    #logger.debug(f'Injection Template done in {delta_inject.hours} hrs, {delta_inject.minutes} mins, {delta_inject.seconds} sec')
-#UNCOMMENT
-    # Preprocessing Template
-    #preprocess_start_time = datetime.datetime.now()
-    #preprocess(injected_template_filepath, preprocessed_template_filepath, True)
-    #preprocess_end_time = datetime.datetime.now()
-    #delta_preprocess = relativedelta(preprocess_end_time, preprocess_start_time)
-    #logger.debug(f'Preprocessing Template done in {delta_preprocess.hours} hrs, {delta_preprocess.minutes} mins, {delta_preprocess.seconds} sec')
-#UNCOMMENT
-    # Normalization Template
-    #norm_start_time = datetime.datetime.now()
-    #normalize(preprocessed_template_filepath, normalized_template_filepath)
-    #norm_end_time = datetime.datetime.now()
-    #delta_norm = relativedelta(norm_end_time, norm_start_time)
-    #logger.debug(f'Normalization done in {delta_norm.hours} hrs, {delta_norm.minutes} mins, {delta_norm.seconds} sec')
+    if config.getboolean("Operations", "preprocess_template"):
+        preprocess_start_time = datetime.datetime.now()
+        preprocess(injected_template_filepath, preprocessed_template_filepath, True)
+        preprocess_end_time = datetime.datetime.now()
+        delta_preprocess = relativedelta(preprocess_end_time, preprocess_start_time)
+        logger.debug(f'Preprocess Template done in {delta_preprocess.hours} hrs, {delta_preprocess.minutes} mins, {delta_preprocess.seconds} sec')
 
+    if config.getboolean("Operations", "normalize_template"):
+        norm_start_time = datetime.datetime.now()
+        normalize(preprocessed_template_filepath, normalized_template_filepath)
+        norm_end_time = datetime.datetime.now()
+        delta_norm = relativedelta(norm_end_time, norm_start_time)
+        logger.debug(f'Normalization Template done in {delta_norm.hours} hrs, {delta_norm.minutes} mins, {delta_norm.seconds} sec')
+    
     normed = os.listdir(normalized_uninjected_filepath)
     normed_injected = os.listdir(normalized_filepath)
     template_dir = os.listdir(normalized_template_filepath)
-    print("start final")
+    print("start asymmetry analysis")
 
     def stretch_template(template, stretch_factor):
         #stretch_factor=1
@@ -154,15 +144,12 @@ def main_function(start_frequency, injected_signal):
                 all_stds.append(np.std(spec))
 
             except Exception as e:
-                #logger.debug(e)
                 pass
         
         return good_names
 
-    # filtering by STD
-    good_names = std_filter()
-    # print(len(good_names))
-    #logger.debug(f'number of spectra: {len(good_names)}')
+    good_names = std_filter()  # STD cutoff
+    print("Number of spectra being used after STD cutooff:",len(good_names))
 
     def asymmetry_builder(doppler_or_intensity):
         print(doppler_or_intensity)
@@ -171,7 +158,6 @@ def main_function(start_frequency, injected_signal):
 
         for i in good_names:
             try:
-                #where are phi and theta in lband data
                 theta = data_table.loc[i[:-4], 'sep90']
                 phi = data_table.loc[i[:-4], 'sep_center']
 
@@ -190,10 +176,9 @@ def main_function(start_frequency, injected_signal):
                 elif angle > upper_cutoff:
                     backward.append(i)
             except Exception as e:
-                #logger.debug(e)
                 pass
 
-        # loading template specs
+        # loading templates
         forward_specs_template = []
         backward_specs_template = []
         for name in template_dir:
@@ -201,9 +186,8 @@ def main_function(start_frequency, injected_signal):
                 forward_specs_template.append(np.load(os.path.join(normalized_template_filepath, name)))
             elif name in backward:
                 backward_specs_template.append(np.load(os.path.join(normalized_template_filepath, name)))
-        #logger.debug(len(forward_specs_template), len(backward_specs_template))
 
-        # loading uninjected specs
+        # loading uninjected spectra
         forward_specs = []
         backward_specs = []
         for name in normed:
@@ -211,9 +195,8 @@ def main_function(start_frequency, injected_signal):
                 forward_specs.append(np.load(os.path.join(normalized_uninjected_filepath, name)))
             elif name in backward:
                 backward_specs.append(np.load(os.path.join(normalized_uninjected_filepath, name)))
-        #logger.debug(len(forward_specs), len(backward_specs))
 
-        # loading injected specs
+        # loading injected spectra
         forward_specs_injected = []
         backward_specs_injected = []
         for name in normed_injected:
@@ -221,9 +204,8 @@ def main_function(start_frequency, injected_signal):
                 forward_specs_injected.append(np.load(os.path.join(normalized_filepath, name)))
             elif name in backward:
                 backward_specs_injected.append(np.load(os.path.join(normalized_filepath, name)))
-        #logger.debug(len(forward_specs_injected), len(backward_specs_injected))
-        # print(len(forward))
-        # print(len(backward))
+        print("Len forward:",len(forward))
+        print("Len backward:",len(backward))
         # creating asymmetries
         forward_mean = np.mean(forward_specs, axis=0)
         backward_mean = np.mean(backward_specs, axis=0)
@@ -235,11 +217,12 @@ def main_function(start_frequency, injected_signal):
         asymmetry = (forward_mean-backward_mean)/(forward_mean+backward_mean)
         asymmetry_injected = (forward_mean_injected-backward_mean_injected)/(forward_mean_injected+backward_mean_injected)
         asymmetry_template = (forward_mean_template-backward_mean_template)/(forward_mean_template+backward_mean_template)
-        # if doppler_or_intensity == 'doppler':
-        #     np.save('/home/dataadmin/GBTData/SharedDataDirectory/lband/asymmetry_injected.npy', asymmetry_injected)
-        
-        # plt.plot(asymmetry_template)
-        # plt.show()
+
+        fig = plt.figure()
+        plt.plot(asymmetry_template)
+        plt.title('Asymmetry template')
+        plt.show()
+        plt.savefig('Asymmetry template')
         idx1 = np.argmin(np.abs(xs - 1030)) #based on where signal is injected
         idx2 = np.argmin(np.abs(xs - 1044))
         template = asymmetry_template[idx1:idx2-1]
@@ -248,7 +231,6 @@ def main_function(start_frequency, injected_signal):
         fom = new_fom(xs, asymmetry_injected, template, 1037)
         fom_raw = new_fom(xs, asymmetry, template, 1037)
         return(xs_fom, fom_raw, fom)
-         #return
 
     # need to fill this out!
     def whack_a_mole(fom_raw):
@@ -307,7 +289,7 @@ def main_function(start_frequency, injected_signal):
             p_vals.append(p_val)
         return(p_vals)
 
-
+'''
     doppler_builder = asymmetry_builder('doppler')
     xs_fom = doppler_builder[0]
     doppler_pvals = p_value_finder(whack_a_mole(doppler_builder[1]), doppler_builder[2])
@@ -325,3 +307,4 @@ def main_function(start_frequency, injected_signal):
     end_time = datetime.datetime.now()
     delta = relativedelta(end_time, start_time)
     logger.debug(f'Analysis done for {start_frequency} and {injected_signal} in {delta.hours} hrs, {delta.minutes} mins, {delta.seconds} sec total!') 
+'''

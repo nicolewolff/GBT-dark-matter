@@ -16,3 +16,6 @@ Contents
 
    usage
    api
+
+.. automodule:: GBT-dark-matter.inject_spaced_arg
+   :members:

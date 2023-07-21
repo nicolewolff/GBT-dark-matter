@@ -1,6 +1,5 @@
+.. autosummary::
+   :toctree: generator
+   :recursive:
 
-
-
-.. toctree::
-   :maxdepth: 4
-
+   inject_spaced_arg

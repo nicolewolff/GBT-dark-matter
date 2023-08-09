@@ -80,4 +80,4 @@ def inject_spaced(ann_cross_sec, loc, filepath_to_save, template):
             except Exception as e:
                 print(e)
     except Exception as e:
-        print(e)
+        print("Injected files already exist")

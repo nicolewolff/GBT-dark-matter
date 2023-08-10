@@ -32,8 +32,16 @@ def filtr(ys, cell_size):
     return ys
 
 def rebin(xs, ys, cell_size=16):
-    """
-    Returns data rebinned to given cell size
+    """ Rebins data to a smaller number of points per coarse channel
+
+    :param xs: frequencies
+    :type xs: 1d array
+    :param ys: powers
+    :type ys: 1darray
+    :param cell_size: number of desired points in a coarse channel (16 for this analysis)
+    :type cell_size: int
+    :return: rebinned frequency array, rebinned power array
+    :rtype: tuple
     """
     rebin_size=1024//cell_size
     rebinned_spec = []

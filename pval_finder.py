@@ -18,8 +18,9 @@ def main_function(start_frequency, injected_signal, config):
     logger.debug(f"Starting process for {start_frequency} and {injected_signal}")
     start_time = datetime.datetime.now()
     injected_filepath = config.get("Paths", "injected_filepath").format(start_frequency=start_frequency, injected_signal=injected_signal)
+    uninjected_filepath = config.get("Paths", "uninjected_filepath").format(start_frequency=start_frequency, injected_signal=injected_signal)    
     preprocessed_filepath = config.get("Paths", "preprocessed_filepath").format(start_frequency=start_frequency, injected_signal=injected_signal)
-    preprocessed_uninjected_filepath = config.get("Paths", "preprocessed_uninjected_filepath").format(start_frequency=start_frequency)
+    preprocessed_uninjected_filepath = config.get("Paths", "preprocessed_uninjected_filepath").format(start_frequency=start_frequency, injected_signal=injected_signal)
     normalized_filepath = config.get("Paths", "normalized_filepath").format(start_frequency=start_frequency, injected_signal=injected_signal)
     normalized_uninjected_filepath = config.get("Paths", "normalized_uninjected_filepath")
     template_filepath = config.get("Paths", "template_filepath")
@@ -43,11 +44,20 @@ def main_function(start_frequency, injected_signal, config):
     if config.getboolean("Operations", "preprocess"):
         preprocess_start_time = datetime.datetime.now()
         print("About to preprocess:")
-        preprocess(injected_filepath, preprocessed_filepath, False)
+        preprocess(uninjected_filepath, preprocessed_filepath, False)
         preprocess_end_time = datetime.datetime.now()
         delta_preprocess = relativedelta(preprocess_end_time, preprocess_start_time)
         logger.debug(f'Preprocessing done in {delta_preprocess.hours} hrs, {delta_preprocess.minutes} mins, {delta_preprocess.seconds} sec')
         print("done preprocess")
+    
+    if config.getboolean("Operations", "uninjected_preprocess"):
+        preprocess_start_time = datetime.datetime.now()
+        print("About to preprocess:")
+        preprocess(uninjected_filepath, preprocessed_uninjected_filepath, False)
+        preprocess_end_time = datetime.datetime.now()
+        delta_preprocess = relativedelta(preprocess_end_time, preprocess_start_time)
+        logger.debug(f'Preprocessing done in {delta_preprocess.hours} hrs, {delta_preprocess.minutes} mins, {delta_preprocess.seconds} sec')
+        print("done uninject preprocess")
 
     if config.getboolean("Operations", "normalize"):
         norm_start_time = datetime.datetime.now()
@@ -66,7 +76,7 @@ def main_function(start_frequency, injected_signal, config):
         logger.debug(f'Uninjected normalization done in {delta_norm.hours} hrs, {delta_norm.minutes} mins, {delta_norm.seconds} sec')
         print("done uninject norm")
 
-    if config.getboolean("Operations", "inject_template"):
+    if config.getboolean("Operations", "inject_template"): 
         inject_start_time = datetime.datetime.now()
         inject_spaced(injected_signal, start_frequency, injected_template_filepath, True)
         inject_end_time = datetime.datetime.now()
@@ -78,24 +88,17 @@ def main_function(start_frequency, injected_signal, config):
         preprocess(injected_template_filepath, preprocessed_template_filepath, True)
         preprocess_end_time = datetime.datetime.now()
         delta_preprocess = relativedelta(preprocess_end_time, preprocess_start_time)
-        logger.debug(f'Preprocess Template done in {delta_preprocess.hours} hrs, {delta_preprocess.minutes} mins, {delta_preprocess.seconds} sec')
+        logger.debug(f'Preprocessing Template done in {delta_preprocess.hours} hrs, {delta_preprocess.minutes} mins, {delta_preprocess.seconds} sec')
 
     if config.getboolean("Operations", "normalize_template"):
         norm_start_time = datetime.datetime.now()
         normalize(preprocessed_template_filepath, normalized_template_filepath)
         norm_end_time = datetime.datetime.now()
         delta_norm = relativedelta(norm_end_time, norm_start_time)
-        logger.debug(f'Normalization Template done in {delta_norm.hours} hrs, {delta_norm.minutes} mins, {delta_norm.seconds} sec')
-    
-    normed = os.listdir(normalized_uninjected_filepath)
-    normed_injected = os.listdir(normalized_filepath)
-    template_dir = os.listdir(normalized_template_filepath)
-    print("start asymmetry analysis")
+        logger.debug(f'Normalization done in {delta_norm.hours} hrs, {delta_norm.minutes} mins, {delta_norm.seconds} sec')
 
     def stretch_template(template, stretch_factor):
-        #stretch_factor=1
-        # stretch_factor: (0, inf) real number to horizontally scale the template by
-        # assumption: center of the template is the center to stretch by, template has odd length
+        # Horizontally scale the template
         assert template.shape[0] % 2 == 1, 'Template must have odd number of points'
         k = template.shape[0] // 2
         orig_x = np.arange(-k, k+1)
@@ -108,7 +111,7 @@ def main_function(start_frequency, injected_signal, config):
     def get_a(target, template):
         return np.dot(target, template) / (np.dot(template, template) + 1e-12)
     def new_fom(freqs, spectrum, template, orig_freq, pad=False):
-        # orig_freq: frequency at which the template was created
+        # Figure of Merit
         a_vals = np.zeros(len(spectrum) - len(template))
         residuals = np.zeros(len(spectrum) - len(template))
         for start in range(len(spectrum) - len(template)):
@@ -126,7 +129,6 @@ def main_function(start_frequency, injected_signal, config):
 
 
     std_cutoff = .004
-    # std_cutoff = .25
 
     def std_filter():
         stds = []
@@ -147,9 +149,6 @@ def main_function(start_frequency, injected_signal, config):
                 pass
         
         return good_names
-
-    good_names = std_filter()  # STD cutoff
-    print("Number of spectra being used after STD cutooff:",len(good_names))
 
     def asymmetry_builder(doppler_or_intensity):
         print(doppler_or_intensity)
@@ -178,7 +177,6 @@ def main_function(start_frequency, injected_signal, config):
             except Exception as e:
                 pass
 
-        # loading templates
         forward_specs_template = []
         backward_specs_template = []
         for name in template_dir:
@@ -187,16 +185,15 @@ def main_function(start_frequency, injected_signal, config):
             elif name in backward:
                 backward_specs_template.append(np.load(os.path.join(normalized_template_filepath, name)))
 
-        # loading uninjected spectra
         forward_specs = []
         backward_specs = []
         for name in normed:
-            if name in forward: #MAKE SURE THESE ARE FORMATED CORRECTLY
+            if name in forward:
                 forward_specs.append(np.load(os.path.join(normalized_uninjected_filepath, name)))
             elif name in backward:
                 backward_specs.append(np.load(os.path.join(normalized_uninjected_filepath, name)))
 
-        # loading injected spectra
+        # Loading injected spectra
         forward_specs_injected = []
         backward_specs_injected = []
         for name in normed_injected:
@@ -204,9 +201,8 @@ def main_function(start_frequency, injected_signal, config):
                 forward_specs_injected.append(np.load(os.path.join(normalized_filepath, name)))
             elif name in backward:
                 backward_specs_injected.append(np.load(os.path.join(normalized_filepath, name)))
-        print("Len forward:",len(forward))
-        print("Len backward:",len(backward))
-        # creating asymmetries
+
+        # Forming asymmetries
         forward_mean = np.mean(forward_specs, axis=0)
         backward_mean = np.mean(backward_specs, axis=0)
         forward_mean_injected = np.mean(forward_specs_injected, axis=0)
@@ -218,11 +214,6 @@ def main_function(start_frequency, injected_signal, config):
         asymmetry_injected = (forward_mean_injected-backward_mean_injected)/(forward_mean_injected+backward_mean_injected)
         asymmetry_template = (forward_mean_template-backward_mean_template)/(forward_mean_template+backward_mean_template)
 
-        fig = plt.figure()
-        plt.plot(asymmetry_template)
-        plt.title('Asymmetry template')
-        plt.show()
-        plt.savefig('Asymmetry template')
         idx1 = np.argmin(np.abs(xs - 1030)) #based on where signal is injected
         idx2 = np.argmin(np.abs(xs - 1044))
         template = asymmetry_template[idx1:idx2-1]
@@ -232,34 +223,18 @@ def main_function(start_frequency, injected_signal, config):
         fom_raw = new_fom(xs, asymmetry, template, 1037)
         return(xs_fom, fom_raw, fom)
 
-    # need to fill this out!
     def whack_a_mole(fom_raw):
-        # def exclude(start_freq, end_freq):
-        #     idx1 = np.argmin(np.abs(xs_fom-start_freq))
-        #     idx2= np.argmin(np.abs(xs_fom-end_freq))
-        #     fom_raw[idx1:idx2] = 0
-        # exclude(1925, 1926.5)
-        # exclude(1997.5, 1999.5)
-        # exclude(2039.5, 2041.5)
-        # exclude(2069, 2071)
-        # exclude(2073, 2074.5)
-        # exclude(2213, 2215)
-        # exclude(2222.5, 2224.5)
-        # exclude(2311, 2313)
-        # exclude(2338, 2340)
-        # exclude(2453.5, 2455)
-        # exclude(2472, 2474)
-        # exclude(2482, 2484)
-        # exclude(2515, 2517)
-        # exclude(2555, 2557)
-        # exclude(2125.5, 2127)
-        # exclude(2535, 2536.5)
+        def exclude(start_freq, end_freq):
+             idx1 = np.argmin(np.abs(xs_fom-start_freq))
+             idx2= np.argmin(np.abs(xs_fom-end_freq))
+             fom_raw[idx1:idx2] = 0
+        # Select noisy regions to exclude 
         return(fom_raw)
 
 
     def p_value_finder(fom_raw, fom):
         
-        # calculate moving STD
+        # Calculate moving Standard Deviation
         moving_std = []
         for i in range(len(fom_raw)):
             if i < 140:
@@ -270,7 +245,7 @@ def main_function(start_frequency, injected_signal, config):
                 moving_std.append(np.std(fom_raw[i-140:i+140]))
 
 
-        idx = np.isfinite(fom) #all false need to be all true
+        idx = np.isfinite(fom)
         y_new = (fom/moving_std)[idx]
         q = [.5*(1-math.erf(y/np.sqrt(2))) for y in y_new]
         
@@ -279,7 +254,6 @@ def main_function(start_frequency, injected_signal, config):
 
         return p_vals
 
-    # goes through spectrum and finds p_values of injected signals from the start frequency
     def signal_pvals(fom_xs, p_spec):
         
         p_vals = []
@@ -289,22 +263,28 @@ def main_function(start_frequency, injected_signal, config):
             p_vals.append(p_val)
         return(p_vals)
 
-'''
-    doppler_builder = asymmetry_builder('doppler')
-    xs_fom = doppler_builder[0]
-    doppler_pvals = p_value_finder(whack_a_mole(doppler_builder[1]), doppler_builder[2])
-    intensity_builder = asymmetry_builder('intensity')
-    intensity_pvals = p_value_finder(whack_a_mole(intensity_builder[1]), intensity_builder[2])
-    combined_pvals = doppler_pvals + intensity_pvals
-    p_vals_array = signal_pvals(xs_fom, combined_pvals)
+    if config.getboolean("Operations", "asymmetry"):
+        normed = os.listdir(normalized_uninjected_filepath)
+        normed_injected = os.listdir(normalized_filepath)
+        template_dir = os.listdir(normalized_template_filepath)
+        print("Starting asymmetry")
 
-    os.makedirs(filepath_to_save, exist_ok=True)
-    np.save(filepath_to_save + '/doppler_pvals.npy', doppler_pvals)
-    np.save(filepath_to_save + '/intensity_pvals.npy', intensity_pvals)
-    np.save(filepath_to_save + '/combined_pvals.npy', combined_pvals)
-    np.save(filepath_to_save + '/p_vals_array.npy', p_vals_array)
-    np.save(filepath_to_save + '/xs_fom.npy', xs_fom)
-    end_time = datetime.datetime.now()
-    delta = relativedelta(end_time, start_time)
-    logger.debug(f'Analysis done for {start_frequency} and {injected_signal} in {delta.hours} hrs, {delta.minutes} mins, {delta.seconds} sec total!') 
-'''
+        # Filtering files with a Standard deviation cut
+        good_names = std_filter()
+
+        doppler_builder = asymmetry_builder('doppler')
+        xs_fom = doppler_builder[0]
+        doppler_pvals = p_value_finder(whack_a_mole(doppler_builder[1]), doppler_builder[2])
+        intensity_builder = asymmetry_builder('intensity')
+        intensity_pvals = p_value_finder(whack_a_mole(intensity_builder[1]), intensity_builder[2])
+        combined_pvals = doppler_pvals + intensity_pvals
+        p_vals_array = signal_pvals(xs_fom, combined_pvals)
+        os.makedirs(filepath_to_save, exist_ok=True)
+        np.save(filepath_to_save + '/doppler_pvals.npy', doppler_pvals)
+        np.save(filepath_to_save + '/intensity_pvals.npy', intensity_pvals)
+        np.save(filepath_to_save + '/combined_pvals.npy', combined_pvals)
+        np.save(filepath_to_save + '/p_vals_array.npy', p_vals_array)
+        np.save(filepath_to_save + '/xs_fom.npy', xs_fom)
+        end_time = datetime.datetime.now()
+        delta = relativedelta(end_time, start_time)
+        logger.debug(f'Analysis done for {start_frequency} and {injected_signal} in {delta.hours} hrs, {delta.minutes} mins, {delta.seconds} sec total!') 

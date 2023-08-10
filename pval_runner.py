@@ -1,4 +1,4 @@
-from pval_finder2 import main_function
+from pval_finder import main_function
 import os
 import sys 
 import configparser
@@ -13,7 +13,7 @@ def main(start_frequencies, signal_sizes, config):
 
 if __name__ == '__main__': 
     config = configparser.ConfigParser()
-    config.read(sys.argv[1])
+    config.read('config.ini')
     start_frequencies = [int(arg) for arg in config.get("Settings", "start_frequencies").split(",")]
     signal_sizes = [float(arg) for arg in config.get("Settings", "signal_sizes").split(",")]
     main(start_frequencies, signal_sizes, config)

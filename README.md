@@ -8,7 +8,7 @@ We are expanding this analysis to the complete L-Band, and eventually the comple
 To adapt and/or run this analysis:
 `git clone https://github.com/nicolewolff/GBT-dark-matter.git`
 
-Contact me at new2128@columbia.edu for information about obtaining the datasets used for this analysis, or search for individual files [here] (http://seti.berkeley.edu/opendata) to use to test a specific part of this analysis.
+Contact me at new2128@columbia.edu for information about obtaining the datasets used for this analysis, or search for individual files [here](http://seti.berkeley.edu/opendata) to use to test a specific part of this analysis.
 
 To convert h5/filterbank data products to NumPy .npy files (in Python):
 ```python

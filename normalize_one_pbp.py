@@ -11,7 +11,6 @@ def normalize(xs, ys, window):
     ind_xs = np.arange(-(window//2), window//2+1)
     lower = (window - 1) // 2
     upper = (window + 1) // 2
-    C = 2.9979e5
     ys_mean = ys / ys.mean()
     chi_squareds = []
     for i in range(0, len(ys)-16, 16):
@@ -27,7 +26,7 @@ def normalize(xs, ys, window):
     normalized_spectrum = []
 
     for i in range(lower, len(xs)-upper):
-        sigma = v_virial*xs[i]/(C*np.sqrt(6))
+        sigma = v_virial*xs[i]/(c*np.sqrt(6))
         current_ys = ys_mean[i-lower:i+upper]
         idx = np.isfinite(current_ys)
         
@@ -36,7 +35,6 @@ def normalize(xs, ys, window):
         fit_A, fit_b, fit_c, fit_d, fit_f, fit_g, fit_center = parameters
         fit_ys = fit_func(ind_xs, fit_A, fit_b,fit_c, fit_d, fit_f,  fit_g, fit_center)
         chi_squared = np.sum((current_ys[idx] - fit_ys[idx])**2/fit_ys[idx])
-
         chi_squareds.append(chi_squared)
 
         g = fit_func(0, fit_A, 0, 0, 0, 0, 0,fit_center)

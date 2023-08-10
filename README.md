@@ -23,4 +23,6 @@ np.save('[filename].npy', data)
 
 ### Running the analysis
 
-Open the file `config.ini`. Edit the directory paths accordingly. 
+Open the file `config.ini`. Edit the directory paths accordingly. Edit the settings for signal injection: ```start_frequencies``` represents the first frequency at which a signal is injected, and this injection is repeated every 50 MHz. (To change the signal modulation, edit `inject_spaced_arg.py`.) Edit the operations to control which scripts are run. For the full analysis, first, set the signal size to 0, and set only `inject, uninjected_preprocess, uninjected_normalize, inject_template, preprocess_template, normalize_template` to True. Then, set only `inject, preprocess, normalize,` and `asymmetry` to True.
+
+To understand specific parts of the analysis, read the source code comments for each function.

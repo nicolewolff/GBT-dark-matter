@@ -13,23 +13,26 @@ def normalize(xs, ys, window):
     upper = (window + 1) // 2
     ys_mean = ys / ys.mean()
     chi_squareds = []
-    for i in range(0, len(ys)-16, 16):
+    for i in range(0, len(ys)-16, 16):  # Excise the 4 unstable valley points in each coarse channel 
         ys_mean[i] = np.NaN
         ys_mean[i+15] = np.NaN
         ys_mean[i+1] = np.NaN
         ys_mean[i+14] = np.NaN
     
     def fit_func(x, A, b,c, d, f, g, center):
+        ''' Weighted polynomial plus Gaussian
+        '''
         y = (A**2)*np.exp((-(freq_diff*x-center)**2)/(2*sigma**2)) + b + c*x + d*x**2 + f*x**3 + g*x**4
         return y
         
     normalized_spectrum = []
-
+    # Loop through the data points and divide each point by the polynomial 
     for i in range(lower, len(xs)-upper):
         sigma = v_virial*xs[i]/(c*np.sqrt(6))
         current_ys = ys_mean[i-lower:i+upper]
         idx = np.isfinite(current_ys)
-        
+
+        # Fit the defined function to the data using curve fitting
         parameters, covariance = curve_fit(fit_func, ind_xs[idx], current_ys[idx], [2, 1,0,0,0,0, 0], maxfev=10000)
 
         fit_A, fit_b, fit_c, fit_d, fit_f, fit_g, fit_center = parameters

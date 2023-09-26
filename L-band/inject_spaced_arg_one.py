@@ -1,4 +1,3 @@
-# by Aya Keller
 from signal import SIG_BLOCK
 import sys, os
 sys.path.insert(0, '..')
@@ -58,11 +57,11 @@ def inject_spaced(ann_cross_sec, loc, filepath_to_save):
                 #loop variables
                 loc_loop = loc
                 end = freq[freq.size-50]
-                salted = inject(freq, spec, theta, v_earth, loc_loop, sig_std, amp)
+                salted = inject(freq, spec, theta, v_earth, loc_loop, sig_std, ann_cross_sec)
                 #loop incrememnting by 50 Mhz until end
                 while loc_loop <= end-50 :
                     loc_loop = loc_loop + 50
-                    salted = inject(freq, salted, theta, v_earth, loc_loop, sig_std, amp)
+                    salted = inject(freq, salted, theta, v_earth, loc_loop, sig_std, ann_cross_sec)
             
                 save_loc_spec = os.path.join(filepath_to_save, name)
                 save_loc_freq = os.path.join(filepath_to_save, name[:-4] + "_freqs.npy")
@@ -70,6 +69,4 @@ def inject_spaced(ann_cross_sec, loc, filepath_to_save):
                 np.save(save_loc_freq, freq)
         except Exception as e:
             #print(e) 
-            pass  
-
-  
+            pass
